@@ -1,0 +1,61 @@
+; definitions
+io_board = DEV4
+get_input = DCMD1
+get_rdy = DCMD2
+reset_rdy = DCMD3
+out_wr0 = DCMD4
+out_wr1 = DCMD5
+out_wr2 = DCMD6
+out_wr3 = DCMD7
+out_wre = DCMD8
+out_rst = DCMD9
+
+get_s 	= c_s
+get_r0	= c_r0
+get_r1	= c_r1
+get_r2	= c_r2
+get_r3	= c_r3
+get_r4	= c_r4
+write_ra = ra
+write_rb = rb
+write_r0 = r0
+write_r1 = r1
+write_r2 = r2
+write_r3 = r3
+write_r4 = r4
+
+get_ctr_low = c_r0
+get_ctr_high = c_r1
+write_ctr_low = r0
+write_ctr_high = r1
+
+; actual program
+; R0 - low part of 8-bit counter
+; R1 - high part of 8-bit counter
+
+			0 ; Err... Simulation sucks
+begin:		15 io_board out_wre
+			0 write_r0
+			0 write_r1
+
+; output values on the screen
+output_ctr:	0 io_board out_wr0
+			0 io_board out_wr1
+			get_r1 io_board out_wr2
+			get_r0 io_board out_wr3
+			12 io_board out_wre
+
+incr_r0:	1 write_rb
+			get_r0 write_ra +
+			get_s write_r0 jnc4 output_ctr
+incr_r1:	get_r1 write_ra +
+			get_s write_r1 jnc4 output_ctr
+
+; halt until user input
+end:		1 write_rb
+chkin3:		io_board get_rdy write_ra
+			^
+			jnz chkin3
+			io_board reset_rdy
+			jmp begin
+

@@ -1,0 +1,139 @@
+; definitions
+io_board = DEV4
+get_input = DCMD1
+get_rdy = DCMD2
+reset_rdy = DCMD3
+out_wr0 = DCMD4
+out_wr1 = DCMD5
+out_wr2 = DCMD6
+out_wr3 = DCMD7
+out_wre = DCMD8
+out_rst = DCMD9
+
+;~ ctr_rgs = DEV3
+;~ get_ctr_lrg = DCMD1
+;~ get_ctr_hrg = DCMD2
+;~ write_ctr_lrg = DCMD3
+;~ write_ctr_hrg = DCMD4
+;~ ctr_rgs_reset = DCMD5
+
+get_s 	= c_s
+get_r0	= c_r0
+get_r1	= c_r1
+get_r2	= c_r2
+get_r3	= c_r3
+get_r4	= c_r4
+write_ra = ra
+write_rb = rb
+write_r0 = r0
+write_r1 = r1
+write_r2 = r2
+write_r3 = r3
+write_r4 = r4
+
+get_mem = DEV1
+write_mem = DEV2
+shift_ctr = DCMD2
+
+; actual program
+; R0 - ones
+; R1 - tens
+; R2 - hundreds
+; R3 - low part of input byte
+; R4 - high part --//--
+			0 ; Err... Simulation sucks
+			15 io_board out_wre
+; getting input
+begin:		1 write_rb
+
+chkin1:		io_board get_rdy write_ra
+			^
+			jnz chkin1
+			io_board get_input write_r3
+			io_board reset_rdy ; don't forget to clean flag
+			get_r3 io_board out_wr1
+chkin2:		io_board get_rdy write_ra
+			^
+			jnz chkin2
+			io_board get_input write_r4
+			io_board reset_rdy ; again
+			get_r4 io_board out_wr0
+
+			0 io_board out_wr0
+			0 io_board out_wr1
+			0 io_board out_wr2
+			0 io_board out_wr3
+			15 io_board out_wre
+
+; shift routine as in double dabble algorithm
+			0 write_r0 ; clearing registers
+			0 write_r1
+			0 write_r2
+			0 write_mem shift_ctr ; initializing counter
+
+; checking (if more than 5) and adding 3 part
+check_r2:	11 write_rb ; complement for 5
+			get_r2 write_ra + ; so here is R1-5
+			jnc4 check_r1
+			3 write_rb +
+			get_s write_r2
+			11 write_rb
+check_r1:	get_r1 write_ra + ; so here is R1-5
+			jnc4 check_r0
+			3 write_rb +
+			get_s write_r1
+			11 write_rb
+check_r0:	get_r0 write_ra + ; so here is R0-5
+			jnc4 shift
+			3 write_rb +
+			get_s write_r0
+
+; shifting dd part
+shift:		get_r2 write_ra ; firstly shift hundreds
+			get_r1 write_rb A<<B
+			get_s write_r2
+shift_tens:	get_r1 write_ra ; then shift tens
+			get_r0 write_rb A<<B
+			get_s write_r1
+shift_ones:	get_r0 write_ra
+			get_r4 write_rb A<<B
+			get_s write_r0
+shift_high:	get_r4 write_ra
+			get_r3 write_rb A<<B
+			get_s write_r4
+shift_low:	get_r3 write_ra <<
+			get_s write_r3
+
+output_ctr:	get_mem shift_ctr write_rb
+			0 write_ra +
+			get_s io_board out_wr0
+
+; increment counter 
+inc_sctr:	1 write_rb 
+			get_mem shift_ctr write_ra +
+			get_s write_mem shift_ctr
+			get_s io_board out_wr1
+
+check_ctr:	8 write_rb
+			get_mem shift_ctr write_ra +
+			jnz check_r2
+
+; output values on the screen
+the_end:	0 io_board out_wr0
+			0 io_board out_wr1
+			0 io_board out_wr2
+			0 io_board out_wr3
+			0 io_board out_wre
+			get_r2 io_board out_wr1
+			get_r1 io_board out_wr2
+			get_r0 io_board out_wr3
+			15 io_board out_wre
+
+
+; halt until user input
+			1 write_rb
+chkin3:		io_board get_rdy write_ra
+			^
+			jnz chkin3
+			jmp begin
+

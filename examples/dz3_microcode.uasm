@@ -1,0 +1,202 @@
+; definitions
+special_dev = DEV0
+c_arg0 = DCMD8
+c_arg1 = DCMD9
+c_arg2 = DCMD10
+c_arg3 = DCMD11
+load_dcmdovr = DCMD1
+load_arg0_dcmdovr = DCMD3
+load_arg1_dcmdovr = DCMD4
+load_devaovr = DCMD2
+ip_load_enable = DCMD13
+decoding_finished = DCMD15
+save_flags = SF
+
+io_board = DEV4
+get_input = DCMD1
+get_rdy = DCMD2
+reset_rdy = DCMD3
+out_wr0 = DCMD4
+out_wr1 = DCMD5
+out_wr2 = DCMD6
+out_wr3 = DCMD7
+out_wre = DCMD8
+out_rst = DCMD9
+
+rgfile_get = DEV1
+rgfile_write = DEV2
+rg0 = DCMD0
+rg1 = DCMD1
+rg2 = DCMD2
+rg3 = DCMD3
+rg4 = DCMD4
+rg5 = DCMD5
+rg6 = DCMD6
+rg7 = DCMD7
+override_dcmd = DCMDOVRD
+override_deva = DEVAOVRD
+
+get_s 	= c_s
+get_r0	= c_r0
+get_r1	= c_r1
+get_r2	= c_r2
+get_r3	= c_r3
+get_r4	= c_r4
+write_ra = ra
+write_rb = rb
+write_r0 = r0
+write_r1 = r1
+write_r2 = r2
+write_r3 = r3
+write_r4 = r4
+
+			jmp set_rX_C
+			jmp mov_rX_rY
+			jmp jmp_XXX
+			jmp jz_XXX
+			jmp jnz_XXX
+			jmp jc4_XXX
+			jmp jnc4_XXX
+			jmp sum_rX_rY
+			jmp sub_rX_rY
+			jmp shr_rX
+			jmp shl_rX
+			jmp dshr_rX_rY
+			jmp dshl_rX_rY
+			jmp and_rX_rY
+			jmp xor_rX_rY
+			jmp or_rX_rY
+			jmp not_rX
+			jmp inc_rX
+; IO board related stuff
+			jmp chk_input
+			jmp load_i2rX
+			jmp input_rX
+			jmp ind0_rX
+			jmp ind1_rX
+			jmp ind2_rX
+			jmp ind3_rX
+			jmp indctrl_rX
+
+set_rX_C:	special_dev load_arg0_dcmdovr ; load arg0 as register X address
+			special_dev c_arg1 write_r1 ; get value
+			get_r1 rgfile_write override_dcmd ; set rgX to value
+			jmp end_decode
+
+; using intel x86 style mov
+mov_rX_rY:	special_dev load_arg1_dcmdovr ; loading address into override register
+			rgfile_get override_dcmd write_r0 ; getting value
+			special_dev load_arg0_dcmdovr ; loading override dcmd register
+			get_r0 rgfile_write override_dcmd ; loading value into dest.
+			jmp end_decode ; jumping to the end
+
+sum_rX_rY:	special_dev load_arg1_dcmdovr ; load address of rY
+			rgfile_get override_dcmd write_rb ; load rY value
+			special_dev load_arg0_dcmdovr ; load address of rX
+			rgfile_get override_dcmd write_ra + ; get rX value and select A+B
+			; then save sum (to rX) and flags, and also jump (Oh, yeah :-))
+			get_s rgfile_write override_dcmd save_flags jmp end_decode
+
+sub_rX_rY:	special_dev load_arg1_dcmdovr ; load address of rY
+			rgfile_get override_dcmd write_ra ~A ; load rY value
+			get_s write_rb ; load rY value
+			special_dev load_arg0_dcmdovr ; load address of rX
+			rgfile_get override_dcmd write_ra SUM+1 ; get rX value and select A+B
+			; then save sum (to rX) and flags, and also jump (Oh, yeah :-))
+			get_s rgfile_write override_dcmd save_flags jmp end_decode
+
+
+shr_rX:		special_dev load_arg0_dcmdovr
+			rgfile_get override_dcmd write_ra >>
+			get_s rgfile_write override_dcmd save_flags jmp end_decode
+
+shl_rX:		special_dev load_arg0_dcmdovr
+			rgfile_get override_dcmd write_ra <<
+			get_s rgfile_write override_dcmd save_flags jmp end_decode
+
+dshr_rX_rY:	special_dev load_arg1_dcmdovr ; load address of rY
+			rgfile_get override_dcmd write_rb ; load rY value
+			special_dev load_arg0_dcmdovr ; load address of rX
+			rgfile_get override_dcmd write_ra B>>A ; get rX value and select B>>A
+			get_s rgfile_write override_dcmd save_flags jmp end_decode
+
+dshl_rX_rY:	special_dev load_arg1_dcmdovr ; load address of rY
+			rgfile_get override_dcmd write_rb ; load rY value
+			special_dev load_arg0_dcmdovr ; load address of rX
+			rgfile_get override_dcmd write_ra A<<B ; get rX value and select A<<B
+			get_s rgfile_write override_dcmd save_flags jmp end_decode
+
+and_rX_rY:	special_dev load_arg1_dcmdovr ; load address of rY
+			rgfile_get override_dcmd write_rb ; load rY value
+			special_dev load_arg0_dcmdovr ; load address of rX
+			rgfile_get override_dcmd write_ra & ; get rX value and select A&B
+			get_s rgfile_write override_dcmd save_flags jmp end_decode
+
+xor_rX_rY:	special_dev load_arg1_dcmdovr ; load address of rY
+			rgfile_get override_dcmd write_rb ; load rY value
+			special_dev load_arg0_dcmdovr ; load address of rX
+			rgfile_get override_dcmd write_ra ^ ; get rX value and select A^B
+			get_s rgfile_write override_dcmd save_flags jmp end_decode
+
+or_rX_rY:	special_dev load_arg1_dcmdovr ; load address of rY
+			rgfile_get override_dcmd write_rb ; load rY value
+			special_dev load_arg0_dcmdovr ; load address of rX
+			rgfile_get override_dcmd write_ra | ; get rX value and select A&B
+			get_s rgfile_write override_dcmd save_flags jmp end_decode
+
+not_rX:		special_dev load_arg0_dcmdovr
+			rgfile_get override_dcmd write_ra ~A ; perform not alu rg A
+			get_s rgfile_write override_dcmd save_flags jmp end_decode
+
+inc_rX:		special_dev load_arg0_dcmdovr
+			rgfile_get override_dcmd write_ra
+			1 write_rb + ; rX+1 and then save stuff 
+			get_s rgfile_write override_dcmd save_flags jmp end_decode
+
+; assuming that nessesary flags were saved
+jmp_XXX:	special_dev ip_load_enable jmp end_decode
+jz_XXX:		special_dev ip_load_enable jmp end_decode
+jnz_XXX:	special_dev ip_load_enable jmp end_decode
+jc4_XXX:	special_dev ip_load_enable jmp end_decode
+jnc4_XXX:	special_dev ip_load_enable jmp end_decode
+
+
+; IO board related stuff
+chk_input:	1 write_rb
+			io_board get_rdy write_ra &
+			save_flags jmp end_decode
+load_i2rX:	io_board get_input write_r0
+			io_board reset_rdy ; don't forget to clean flag
+			special_dev load_arg0_dcmdovr
+			get_r0 rgfile_write override_dcmd jmp end_decode
+input_rX:	1 write_rb
+			io_board get_rdy write_ra &
+			jz input_rX
+			io_board get_input write_r0
+			io_board reset_rdy ; don't forget to clean flag
+			special_dev load_arg0_dcmdovr
+			get_r0 rgfile_write override_dcmd jmp end_decode
+
+
+ind0_rX:	special_dev load_arg0_dcmdovr
+			rgfile_get override_dcmd write_r0
+			get_r0 io_board out_wr0 jmp end_decode
+
+ind1_rX:	special_dev load_arg0_dcmdovr
+			rgfile_get override_dcmd write_r0
+			get_r0 io_board out_wr1 jmp end_decode
+
+ind2_rX:	special_dev load_arg0_dcmdovr
+			rgfile_get override_dcmd write_r0
+			get_r0 io_board out_wr2 jmp end_decode
+
+ind3_rX:	special_dev load_arg0_dcmdovr
+			rgfile_get override_dcmd write_r0
+			get_r0 io_board out_wr3 jmp end_decode
+
+indctrl_rX:	special_dev load_arg0_dcmdovr
+			rgfile_get override_dcmd write_r0
+			get_r0 io_board out_wre jmp end_decode
+
+end_decode:	special_dev decoding_finished
+			0
